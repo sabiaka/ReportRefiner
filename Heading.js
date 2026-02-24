@@ -31,6 +31,18 @@ function addHeadingNumbers(body) {
       const level = getHeadingLevel(heading);
       
       if (level > 0) {
+        // 既存のテキストを取得
+        let text = p.getText();
+        
+        // 先頭の番号パターンを削除（例: "1.", "1.1", "1.2.3 " など）
+        // パターン: 行頭から始まる数字とドットの組み合わせ + 任意の空白
+        text = text.replace(/^[\d\.\s]+/, '').trim();
+        
+        // テキストが空の場合はスキップ（番号を付けない）
+        if (text.length === 0) {
+          continue;
+        }
+        
         // 現在のレベルのカウンタをインクリメント
         counters[level - 1]++;
         
@@ -41,13 +53,6 @@ function addHeadingNumbers(body) {
         
         // 番号文字列を生成（例: "1", "1.1", "1.2.3"）
         const numberString = generateNumberString(counters, level);
-        
-        // 既存のテキストを取得
-        let text = p.getText();
-        
-        // 先頭の番号パターンを削除（例: "1.", "1.1", "1.2.3 " など）
-        // パターン: 行頭から始まる数字とドットの組み合わせ + 任意の空白
-        text = text.replace(/^[\d\.\s]+/, '').trim();
         
         // 新しい番号を付けてテキストを更新
         p.setText(numberString + ' ' + text);
