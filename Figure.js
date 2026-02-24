@@ -4,24 +4,28 @@
  */
 
 /**
- * 画像の下に図表番号とタイトルを追加する
+ * 画像の下に図番号、表の上に表番号とタイトルを追加する
  * @param {GoogleAppsScript.Document.Body} body
- * @return {{processedImages: number, skippedImages: number}}
+ * @return {{processedImages: number, skippedImages: number, processedTables: number, skippedTables: number}}
  */
 function addFigureNumbers(body) {
   const elements = body.getNumChildren();
   let processedImages = 0;
   let skippedImages = 0;
+  let processedTables = 0;
+  let skippedTables = 0;
   
   // 現在の見出し番号を追跡
   let currentHeadingNumbers = [];
   let figureCounterInSection = 0;
+  let tableCounterInSection = 0;
   
   for (let i = 0; i < elements; i++) {
     const element = body.getChild(i);
+    const elementType = element.getType();
     
     // 段落要素の場合
-    if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    if (elementType === DocumentApp.ElementType.PARAGRAPH) {
       const paragraph = element.asParagraph();
       const heading = paragraph.getHeading();
       
@@ -43,6 +47,7 @@ function addFigureNumbers(body) {
           if (newHeadingNumbers.join('.') !== currentHeadingNumbers.join('.')) {
             currentHeadingNumbers = newHeadingNumbers;
             figureCounterInSection = 0;
+            tableCounterInSection = 0;
           }
         }
       }
@@ -80,11 +85,48 @@ function addFigureNumbers(body) {
         processedImages++;
       }
     }
+    // 表要素の場合
+    else if (elementType === DocumentApp.ElementType.TABLE) {
+      tableCounterInSection++;
+      
+      // 前の要素をチェック（既に表番号があるか確認）
+      if (i > 0) {
+        const prevElement = body.getChild(i - 1);
+        
+        if (prevElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
+          const prevParagraph = prevElement.asParagraph();
+          const prevText = prevParagraph.getText();
+          
+          // 既に表番号がある場合はスキップ（全角・半角スペース両対応）
+          if (/^表[\d\.\-]+[\s　]/.test(prevText)) {
+            skippedTables++;
+            continue;
+          }
+        }
+      }
+      
+      // 表番号を生成（見出しに応じた番号体系）
+      const tableNumber = generateTableNumber(currentHeadingNumbers, tableCounterInSection);
+      
+      // 新しい段落を挿入（表の前の位置）
+      const newIndex = body.getChildIndex(element);
+      const tableParagraph = body.insertParagraph(newIndex, tableNumber + ' ');
+      
+      // 中央揃えに設定
+      tableParagraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      
+      processedTables++;
+      
+      // インデックスを1つ進める（挿入した段落分）
+      i++;
+    }
   }
   
   return {
     processedImages,
-    skippedImages
+    skippedImages,
+    processedTables,
+    skippedTables
   };
 }
 
@@ -120,4 +162,20 @@ function generateFigureNumber(headingNumbers, figureCounter) {
   
   // 見出し番号がない場合は、単純な連番
   return '図' + figureCounter;
+}
+
+/**
+ * 表番号を生成（見出し番号に基づく）
+ * @param {string[]} headingNumbers - 見出し番号配列（例: ["1", "2", "3"]）
+ * @param {number} tableCounter - 章内の表カウンタ
+ * @return {string} 表番号（例: "表1.2-1", "表2.3.1-2"）
+ */
+function generateTableNumber(headingNumbers, tableCounter) {
+  // 見出し番号がある場合は、それに表番号を追加
+  if (headingNumbers.length > 0) {
+    return '表' + headingNumbers.join('.') + '-' + tableCounter;
+  }
+  
+  // 見出し番号がない場合は、単純な連番
+  return '表' + tableCounter;
 }

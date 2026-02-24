@@ -93,7 +93,7 @@ function runRemoveHeadingNumbers() {
 
 /**
  * 5. 図表番号・タイトル追加の実行
- * （画像の下に図表番号を挿入）
+ * （画像の下に図番号、表の上に表番号を挿入）
  */
 function runAddFigureNumbers() {
   const doc = DocumentApp.getActiveDocument();
@@ -105,8 +105,10 @@ function runAddFigureNumbers() {
   doc.saveAndClose();
   DocumentApp.getUi().alert(
     '図表番号・タイトル追加が完了しました。\n' +
-    '追加した図表: ' + result.processedImages + ' 件\n' +
-    'スキップした図表: ' + result.skippedImages + ' 件\n\n' +
+    '追加した図: ' + result.processedImages + ' 件\n' +
+    'スキップした図: ' + result.skippedImages + ' 件\n' +
+    '追加した表: ' + result.processedTables + ' 件\n' +
+    'スキップした表: ' + result.skippedTables + ' 件\n\n' +
     '※ 図表番号の後にタイトルを入力してください。'
   );
 }
