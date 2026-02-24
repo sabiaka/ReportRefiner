@@ -54,9 +54,30 @@ function addFigureNumbers(body) {
       
       // 画像が含まれているかチェック
       if (paragraphContainsImage(paragraph)) {
-        figureCounterInSection++;
+        // 前の要素をチェック（画像の上に表番号があるか確認）
+        let isTableImage = false;
+        if (i > 0) {
+          const prevElement = body.getChild(i - 1);
+          
+          if (prevElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
+            const prevParagraph = prevElement.asParagraph();
+            const prevText = prevParagraph.getText();
+            
+            // 画像の上に表番号がある場合は、この画像を表として扱う
+            if (/^表[\d\.\-]+[\s　]/.test(prevText)) {
+              isTableImage = true;
+              tableCounterInSection++;
+              skippedImages++;
+            }
+          }
+        }
         
-        // 次の要素をチェック（既に図表番号があるか確認）
+        // 表として扱われる画像はスキップ
+        if (isTableImage) {
+          continue;
+        }
+        
+        // 次の要素をチェック（既に図番号があるか確認）
         if (i + 1 < elements) {
           const nextElement = body.getChild(i + 1);
           
@@ -64,13 +85,16 @@ function addFigureNumbers(body) {
             const nextParagraph = nextElement.asParagraph();
             const nextText = nextParagraph.getText();
             
-            // 既に図表番号がある場合はスキップ（全角・半角スペース両対応）
+            // 既に図番号がある場合はスキップ
             if (/^図[\d\.\-]+[\s　]/.test(nextText)) {
               skippedImages++;
               continue;
             }
           }
         }
+        
+        // 図として処理
+        figureCounterInSection++;
         
         // 図表番号を生成（見出しに応じた番号体系）
         const figureNumber = generateFigureNumber(currentHeadingNumbers, figureCounterInSection);
