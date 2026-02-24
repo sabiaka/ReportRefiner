@@ -65,16 +65,16 @@ function adjustIndent(body) {
       continue;
     }
     
-    const text = p.getText().trim();
+    let text = p.getText();
     const heading = p.getHeading();
     const alignment = p.getAlignment();
-    
+
     // 空の段落はスキップ
-    if (text.length === 0) {
+    if (text.trim().length === 0) {
       skippedParagraphs++;
       continue;
     }
-    
+
     // 画像を含む段落はスキップ
     let hasImage = false;
     for (let i = 0; i < p.getNumChildren(); i++) {
@@ -87,13 +87,27 @@ function adjustIndent(body) {
       skippedParagraphs++;
       continue;
     }
-    
+
     // 図表番号・タイトル（中央揃え）はスキップ
     if (alignment === DocumentApp.HorizontalAlignment.CENTER) {
       skippedParagraphs++;
       continue;
     }
-    
+
+    // 先頭の全角・半角スペースを削除
+    let newText = text.replace(/^[ \u3000]+/, "");
+    // 途中の連続スペース（半角2つ以上 or 全角2つ以上 or 混在）を1つに
+    newText = newText.replace(/([ \u3000])\1+/g, "$1");
+
+    // 途中のスペース連打（2つ以上の連続スペース）をすべて1つに
+    newText = newText.replace(/([ \u3000]){2,}/g, "$1");
+
+    // テキストが変わった場合は更新
+    if (newText !== text) {
+      p.setText(newText);
+      text = newText;
+    }
+
     // 見出しの場合: インデントをすべて0にする
     if (heading !== DocumentApp.ParagraphHeading.NORMAL) {
       p.setIndentStart(0);
@@ -102,7 +116,7 @@ function adjustIndent(body) {
       adjustedParagraphs++;
       continue;
     }
-    
+
     // 通常の段落: 左インデント0、初行インデント1文字
     p.setIndentStart(0);
     p.setIndentEnd(0);
