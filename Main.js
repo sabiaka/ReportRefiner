@@ -10,6 +10,7 @@ function onOpen() {
     .addItem('スタイル調整（文字・用語）', 'runReplacement')
     .addSeparator() // 区切り線
     .addItem('レイアウト調整（画像中央）', 'runLayoutAdjustment')
+    .addItem('インデント自動調整', 'runIndentAdjustment')
     .addSeparator() // 区切り線
     .addItem('見出し番号付け', 'runHeadingNumbering')
     .addItem('見出し番号削除', 'runRemoveHeadingNumbers')
@@ -56,7 +57,28 @@ function runLayoutAdjustment() {
 }
 
 /**
- * 3. 見出し番号付けの実行
+ * 3. インデント自動調整の実行
+ * （図表以外の段落のインデントを整える）
+ */
+function runIndentAdjustment() {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+  
+  // Layout.js の処理（インデント調整）
+  const result = adjustIndent(body);
+  
+  doc.saveAndClose();
+  DocumentApp.getUi().alert(
+    'インデント自動調整が完了しました。\n' +
+    '調整した段落: ' + result.adjustedParagraphs + ' 件\n' +
+    'スキップした段落: ' + result.skippedParagraphs + ' 件\n\n' +
+    '※ 見出し: インデントなし\n' +
+    '※ 通常段落: 初行インデント1文字'
+  );
+}
+
+/**
+ * 4. 見出し番号付けの実行
  * （見出しに階層的な番号を自動付与）
  */
 function runHeadingNumbering() {
@@ -74,7 +96,7 @@ function runHeadingNumbering() {
 }
 
 /**
- * 4. 見出し番号削除の実行
+ * 5. 見出し番号削除の実行
  * （見出しから番号を削除）
  */
 function runRemoveHeadingNumbers() {
@@ -92,7 +114,7 @@ function runRemoveHeadingNumbers() {
 }
 
 /**
- * 5. 図表番号・タイトル追加の実行
+ * 6. 図表番号・タイトル追加の実行
  * （画像の下に図番号、表の上に表番号を挿入）
  */
 function runAddFigureNumbers() {
