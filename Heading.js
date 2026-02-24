@@ -18,7 +18,7 @@ function addHeadingNumbers(body) {
   for (const p of paragraphs) {
     const heading = p.getHeading();
     
-    
+
     // HEADING1 ～ HEADING6 の場合のみ処理
     if (heading === DocumentApp.ParagraphHeading.HEADING1 ||
         heading === DocumentApp.ParagraphHeading.HEADING2 ||
@@ -98,4 +98,43 @@ function generateNumberString(counters, level) {
     parts.push(counters[i]);
   }
   return parts.join('.');
+}
+
+/**
+ * 見出しから番号を削除する
+ * @param {GoogleAppsScript.Document.Body} body
+ * @return {{processedHeadings: number}}
+ */
+function removeHeadingNumbers(body) {
+  const paragraphs = body.getParagraphs();
+  let processedHeadings = 0;
+  
+  for (const p of paragraphs) {
+    const heading = p.getHeading();
+    
+    // HEADING1 ～ HEADING6 の場合のみ処理
+    if (heading === DocumentApp.ParagraphHeading.HEADING1 ||
+        heading === DocumentApp.ParagraphHeading.HEADING2 ||
+        heading === DocumentApp.ParagraphHeading.HEADING3 ||
+        heading === DocumentApp.ParagraphHeading.HEADING4 ||
+        heading === DocumentApp.ParagraphHeading.HEADING5 ||
+        heading === DocumentApp.ParagraphHeading.HEADING6) {
+      
+      // 既存のテキストを取得
+      let text = p.getText();
+      
+      // 先頭の番号パターンを削除（例: "1.", "1.1", "1.2.3 " など）
+      const newText = text.replace(/^[\d\.\s]+/, '').trim();
+      
+      // テキストが変更された場合のみ更新（空文字列になる場合はスキップ）
+      if (newText !== text && newText.length > 0) {
+        p.setText(newText);
+        processedHeadings++;
+      }
+    }
+  }
+  
+  return {
+    processedHeadings
+  };
 }

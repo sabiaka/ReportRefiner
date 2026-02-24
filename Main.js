@@ -12,6 +12,7 @@ function onOpen() {
     .addItem('レイアウト調整（画像中央）', 'runLayoutAdjustment')
     .addSeparator() // 区切り線
     .addItem('見出し番号付け', 'runHeadingNumbering')
+    .addItem('見出し番号削除', 'runRemoveHeadingNumbers')
     .addToUi();
 }
 
@@ -66,6 +67,24 @@ function runHeadingNumbering() {
   doc.saveAndClose();
   DocumentApp.getUi().alert(
     '見出し番号付けが完了しました。\n' +
+    '処理した見出し: ' + result.processedHeadings + ' 件'
+  );
+}
+
+/**
+ * 4. 見出し番号削除の実行
+ * （見出しから番号を削除）
+ */
+function runRemoveHeadingNumbers() {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+  
+  // Heading.js の処理（見出し番号削除）
+  const result = removeHeadingNumbers(body);
+  
+  doc.saveAndClose();
+  DocumentApp.getUi().alert(
+    '見出し番号削除が完了しました。\n' +
     '処理した見出し: ' + result.processedHeadings + ' 件'
   );
 }
