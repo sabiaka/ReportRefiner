@@ -13,6 +13,8 @@ function onOpen() {
     .addSeparator() // 区切り線
     .addItem('見出し番号付け', 'runHeadingNumbering')
     .addItem('見出し番号削除', 'runRemoveHeadingNumbers')
+    .addSeparator() // 区切り線
+    .addItem('図表番号・タイトル追加', 'runAddFigureNumbers')
     .addToUi();
 }
 
@@ -86,5 +88,25 @@ function runRemoveHeadingNumbers() {
   DocumentApp.getUi().alert(
     '見出し番号削除が完了しました。\n' +
     '処理した見出し: ' + result.processedHeadings + ' 件'
+  );
+}
+
+/**
+ * 5. 図表番号・タイトル追加の実行
+ * （画像の下に図表番号を挿入）
+ */
+function runAddFigureNumbers() {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+  
+  // Figure.js の処理（図表番号追加）
+  const result = addFigureNumbers(body);
+  
+  doc.saveAndClose();
+  DocumentApp.getUi().alert(
+    '図表番号・タイトル追加が完了しました。\n' +
+    '追加した図表: ' + result.processedImages + ' 件\n' +
+    'スキップした図表: ' + result.skippedImages + ' 件\n\n' +
+    '※ 図表番号の後にタイトルを入力してください。'
   );
 }
