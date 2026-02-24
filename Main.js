@@ -10,6 +10,8 @@ function onOpen() {
     .addItem('スタイル調整（文字・用語）', 'runReplacement')
     .addSeparator() // 区切り線
     .addItem('レイアウト調整（画像中央）', 'runLayoutAdjustment')
+    .addSeparator() // 区切り線
+    .addItem('見出し番号付け', 'runHeadingNumbering')
     .addToUi();
 }
 
@@ -47,5 +49,23 @@ function runLayoutAdjustment() {
     'レイアウト調整が完了しました。\n' +
     '画像中央: ' + result.centeredImageParagraphs + ' 件\n\n' +
     '※ 画像段落のインデントを解除してから中央揃えしています。'
+  );
+}
+
+/**
+ * 3. 見出し番号付けの実行
+ * （見出しに階層的な番号を自動付与）
+ */
+function runHeadingNumbering() {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+  
+  // Heading.js の処理（見出し番号付け）
+  const result = addHeadingNumbers(body);
+  
+  doc.saveAndClose();
+  DocumentApp.getUi().alert(
+    '見出し番号付けが完了しました。\n' +
+    '処理した見出し: ' + result.processedHeadings + ' 件'
   );
 }
