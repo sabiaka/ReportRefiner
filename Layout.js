@@ -94,19 +94,15 @@ function adjustIndent(body) {
       continue;
     }
 
-    // 先頭の全角・半角スペースを削除
-    let newText = text.replace(/^[ \u3000]+/, "");
-    // 途中の連続スペース（半角2つ以上 or 全角2つ以上 or 混在）を1つに
-    newText = newText.replace(/([ \u3000])\1+/g, "$1");
-
-    // 途中のスペース連打（2つ以上の連続スペース）をすべて1つに
-    newText = newText.replace(/([ \u3000]){2,}/g, "$1");
-
-    // テキストが変わった場合は更新
-    if (newText !== text) {
-      p.setText(newText);
-      text = newText;
+    // 箇条書き: 一旦箇条書きを外して整形し、同じ箇条書きを再適用
+    if (p.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      adjustListItemIndent(body, p.asListItem());
+      adjustedParagraphs++;
+      continue;
     }
+
+    // 先頭の全角・半角スペースを削除
+    text = normalizeParagraphText(p, text);
 
     // 見出しの場合: インデントをすべて0にする
     if (heading !== DocumentApp.ParagraphHeading.NORMAL) {
@@ -157,4 +153,92 @@ function isInTable(paragraph) {
   }
   
   return false;
+}
+
+/**
+ * 段落テキストの空白を整形
+ * @param {GoogleAppsScript.Document.Paragraph|GoogleAppsScript.Document.ListItem} paragraph
+ * @param {string} text
+ * @return {string}
+ */
+function normalizeParagraphText(paragraph, text) {
+  // 先頭の全角・半角スペースを削除
+  let newText = text.replace(/^[ \u3000]+/, "");
+  // 途中の連続スペース（半角2つ以上 or 全角2つ以上 or 混在）を1つに
+  newText = newText.replace(/([ \u3000])\1+/g, "$1");
+  // 途中のスペース連打（2つ以上の連続スペース）をすべて1つに
+  newText = newText.replace(/([ \u3000]){2,}/g, "$1");
+
+  if (newText !== text) {
+    paragraph.setText(newText);
+  }
+
+  return newText;
+}
+
+/**
+ * 箇条書き段落を一旦通常段落にして整形後、同じ箇条書きを再適用
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {GoogleAppsScript.Document.ListItem} listItem
+ */
+function adjustListItemIndent(body, listItem) {
+  const listId = listItem.getListId();
+  const glyphType = listItem.getGlyphType();
+  const nestingLevel = listItem.getNestingLevel();
+  const alignment = listItem.getAlignment();
+  const spacingBefore = listItem.getSpacingBefore();
+  const spacingAfter = listItem.getSpacingAfter();
+  const text = listItem.getText();
+
+  // 同じ listId を持つ近傍の項目を保持（再適用時の連番維持用）
+  const prevSibling = listItem.getPreviousSibling();
+  const nextSibling = listItem.getNextSibling();
+  let listIdAnchor = null;
+
+  if (prevSibling && prevSibling.getType() === DocumentApp.ElementType.LIST_ITEM) {
+    const prevList = prevSibling.asListItem();
+    if (prevList.getListId() === listId) {
+      listIdAnchor = prevList;
+    }
+  }
+  if (!listIdAnchor && nextSibling && nextSibling.getType() === DocumentApp.ElementType.LIST_ITEM) {
+    const nextList = nextSibling.asListItem();
+    if (nextList.getListId() === listId) {
+      listIdAnchor = nextList;
+    }
+  }
+
+  // 一旦箇条書きを外す（ListItem -> Paragraph）
+  const childIndex = body.getChildIndex(listItem);
+  listItem.removeFromParent();
+  const tempParagraph = body.insertParagraph(childIndex, text);
+
+  // 段落としてテキスト整形
+  const normalizedText = normalizeParagraphText(tempParagraph, tempParagraph.getText());
+  tempParagraph.setIndentStart(0);
+  tempParagraph.setIndentEnd(0);
+  tempParagraph.setIndentFirstLine(0);
+
+  // 同じ箇条書きで復元（Paragraph -> ListItem）
+  tempParagraph.removeFromParent();
+  const restoredListItem = body.insertListItem(childIndex, normalizedText);
+
+  if (glyphType !== null) {
+    restoredListItem.setGlyphType(glyphType);
+  }
+  restoredListItem.setNestingLevel(nestingLevel);
+
+  if (listIdAnchor) {
+    restoredListItem.setListId(listIdAnchor);
+  }
+
+  if (alignment !== null) {
+    restoredListItem.setAlignment(alignment);
+  }
+  if (spacingBefore !== null) {
+    restoredListItem.setSpacingBefore(spacingBefore);
+  }
+  if (spacingAfter !== null) {
+    restoredListItem.setSpacingAfter(spacingAfter);
+  }
 }
