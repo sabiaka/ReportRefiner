@@ -84,7 +84,7 @@ function addFigureNumbers(body) {
             const prevText = prevParagraph.getText();
 
             // 画像の上に表番号がある場合は、この画像を表として扱う
-            if (/^表[\d\.\-]+[\s　]/.test(prevText)) {
+            if (extractCaptionTitle(prevText, '表') !== null) {
               isTableImage = true;
               tableCounterInSection++;
               skippedImages++;
@@ -97,24 +97,33 @@ function addFigureNumbers(body) {
           continue;
         }
 
-        // 次の要素をチェック（既に図番号があるか確認）
+        // 図として処理
+        figureCounterInSection++;
+
+        // 図番号を生成（見出しに応じた番号体系）
+        const figureNumber = generateFigureNumber(currentHeadingNumbers, figureCounterInSection);
+
+        // 次の要素をチェック（既存の図番号は上書き再採番）
         if (i + 1 < elements) {
           const nextElement = body.getChild(i + 1);
 
           if (nextElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
             const nextParagraph = nextElement.asParagraph();
             const nextText = nextParagraph.getText();
-            // 既に図番号がある場合は中央揃えだけ適用してスキップ
-            if (/^図[\d\.\-]+[\s　]/.test(nextText)) {
-              nextParagraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-              skippedImages++;
+            const figureTitle = extractCaptionTitle(nextText, '図');
+
+            // 既存の図キャプションは番号を上書きして再採番
+            if (figureTitle !== null) {
+              const newCaption = figureTitle.length > 0
+                ? figureNumber + ' ' + figureTitle
+                : figureNumber + ' ';
+              nextParagraph.setText(newCaption);
+              applyCaptionCenterAlignment(nextParagraph);
+              processedImages++;
               continue;
             }
           }
         }
-
-        // 図として処理
-        figureCounterInSection++;
 
         // 画像の次の段落が仮の「図◯」の場合は削除
         if (i + 1 < elements) {
@@ -122,22 +131,19 @@ function addFigureNumbers(body) {
           if (nextElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
             const nextParagraph = nextElement.asParagraph();
             const nextText = nextParagraph.getText();
-            // 仮の「図◯」パターン（例: 図1, 図２, 図A, 図あ, 図〇 など）
-            if (/^図[\dＡ-ＺA-Za-zぁ-んァ-ン一-龥〇]+[\s　]*$/.test(nextText)) {
+            // 仮の「図◯」のみのパターンは置換対象との重複回避のためクリア
+            if (/^図[\dＡ-ＺA-Za-zぁ-んァ-ン一-龥〇\.\-－ー\(\)（）]*[\s　]*$/.test(nextText)) {
               nextParagraph.clear();
             }
           }
         }
-
-        // 図表番号を生成（見出しに応じた番号体系）
-        const figureNumber = generateFigureNumber(currentHeadingNumbers, figureCounterInSection);
 
         // 新しい段落を挿入（画像の次の位置）
         const newIndex = body.getChildIndex(paragraph) + 1;
         const figureParagraph = body.insertParagraph(newIndex, figureNumber + ' ');
 
         // 中央揃えに設定
-        figureParagraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+        applyCaptionCenterAlignment(figureParagraph);
 
         processedImages++;
       }
@@ -146,31 +152,37 @@ function addFigureNumbers(body) {
     else if (elementType === DocumentApp.ElementType.TABLE) {
       tableCounterInSection++;
 
-      // 前の要素をチェック（既に表番号があるか確認）
+      // 表番号を生成（見出しに応じた番号体系）
+      const tableNumber = generateTableNumber(currentHeadingNumbers, tableCounterInSection);
+
+      // 前の要素をチェック（既存の表番号は上書き再採番）
       if (i > 0) {
         const prevElement = body.getChild(i - 1);
 
         if (prevElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
           const prevParagraph = prevElement.asParagraph();
           const prevText = prevParagraph.getText();
-          // 既に表番号がある場合は中央揃えだけ適用してスキップ
-          if (/^表[\d\.\-]+[\s　]/.test(prevText)) {
-            prevParagraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-            skippedTables++;
+          const tableTitle = extractCaptionTitle(prevText, '表');
+
+          // 既存の表キャプションは番号を上書きして再採番
+          if (tableTitle !== null) {
+            const newCaption = tableTitle.length > 0
+              ? tableNumber + ' ' + tableTitle
+              : tableNumber + ' ';
+            prevParagraph.setText(newCaption);
+            applyCaptionCenterAlignment(prevParagraph);
+            processedTables++;
             continue;
           }
         }
       }
-
-      // 表番号を生成（見出しに応じた番号体系）
-      const tableNumber = generateTableNumber(currentHeadingNumbers, tableCounterInSection);
 
       // 新しい段落を挿入（表の前の位置）
       const newIndex = body.getChildIndex(element);
       const tableParagraph = body.insertParagraph(newIndex, tableNumber + ' ');
 
       // 中央揃えに設定
-      tableParagraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      applyCaptionCenterAlignment(tableParagraph);
 
       processedTables++;
 
@@ -185,6 +197,65 @@ function addFigureNumbers(body) {
     processedTables,
     skippedTables
   };
+}
+
+/**
+ * 既存キャプションからタイトル部分を抽出
+ * - 例: "図25 作業レイアウト" -> "作業レイアウト"
+ * - 例: "表1.2-3" -> ""
+ * - 例: "図 作業レイアウト" -> "作業レイアウト"
+ * @param {string} text
+ * @param {string} prefix "図" or "表"
+ * @return {string|null} キャプションでない場合は null
+ */
+function extractCaptionTitle(text, prefix) {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith(prefix)) {
+    return null;
+  }
+
+  const rest = trimmed.slice(prefix.length).trim();
+  if (rest.length === 0) {
+    return '';
+  }
+
+  // 最初のトークンが番号/IDらしければ、それ以降をタイトルとみなす
+  const firstSpaceIndex = rest.search(/[\s　]/);
+  if (firstSpaceIndex >= 0) {
+    const firstToken = rest.slice(0, firstSpaceIndex);
+    const remaining = rest.slice(firstSpaceIndex).trim();
+    if (isCaptionIdToken(firstToken)) {
+      return remaining;
+    }
+    return rest;
+  }
+
+  // 1トークンのみ: 番号/IDならタイトルなし、そうでなければタイトルとして扱う
+  if (isCaptionIdToken(rest)) {
+    return '';
+  }
+
+  return rest;
+}
+
+/**
+ * 図表キャプションの番号/IDらしいトークン判定
+ * @param {string} token
+ * @return {boolean}
+ */
+function isCaptionIdToken(token) {
+  return /^[0-9０-９A-Za-zＡ-Ｚａ-ｚ\.\-－ー\(\)（）]+$/.test(token);
+}
+
+/**
+ * 図表キャプション段落をインデント解除して中央揃えにする
+ * @param {GoogleAppsScript.Document.Paragraph} paragraph
+ */
+function applyCaptionCenterAlignment(paragraph) {
+  paragraph.setIndentStart(0);
+  paragraph.setIndentEnd(0);
+  paragraph.setIndentFirstLine(0);
+  paragraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
 }
 
 /**
