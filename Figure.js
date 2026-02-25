@@ -29,7 +29,6 @@ function addFigureNumbers(body) {
   if (!hasHeading) {
     throw new Error('見出し番号を付与した後で図表番号を付与してください。');
   }
-  const elements = body.getNumChildren();
   let processedImages = 0;
   let skippedImages = 0;
   let processedTables = 0;
@@ -40,7 +39,7 @@ function addFigureNumbers(body) {
   let figureCounterInSection = 0;
   let tableCounterInSection = 0;
 
-  for (let i = 0; i < elements; i++) {
+  for (let i = 0; i < body.getNumChildren(); i++) {
     const element = body.getChild(i);
     const elementType = element.getType();
 
@@ -104,7 +103,7 @@ function addFigureNumbers(body) {
         const figureNumber = generateFigureNumber(currentHeadingNumbers, figureCounterInSection);
 
         // 次の要素をチェック（既存の図番号は上書き再採番）
-        if (i + 1 < elements) {
+        if (i + 1 < body.getNumChildren()) {
           const nextElement = body.getChild(i + 1);
 
           if (nextElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
@@ -126,7 +125,7 @@ function addFigureNumbers(body) {
         }
 
         // 画像の次の段落が仮の「図◯」の場合は削除
-        if (i + 1 < elements) {
+        if (i + 1 < body.getNumChildren()) {
           const nextElement = body.getChild(i + 1);
           if (nextElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
             const nextParagraph = nextElement.asParagraph();
@@ -138,9 +137,8 @@ function addFigureNumbers(body) {
           }
         }
 
-        // 新しい段落を挿入（画像の次の位置）
-        const newIndex = body.getChildIndex(paragraph) + 1;
-        const figureParagraph = body.insertParagraph(newIndex, figureNumber + ' ');
+        // 新しい段落を挿入（画像の次の位置 / 末尾なら append）
+        const figureParagraph = insertParagraphAfter(body, paragraph, figureNumber + ' ');
 
         // 中央揃えに設定
         applyCaptionCenterAlignment(figureParagraph);
@@ -150,6 +148,27 @@ function addFigureNumbers(body) {
     }
     // 表要素の場合
     else if (elementType === DocumentApp.ElementType.TABLE) {
+      const table = element.asTable();
+
+      // 1x1表（コードブロック代用）は採番しない
+      if (isSingleCellTable(table)) {
+        // 既存の表番号が直前にある場合は削除
+        if (i > 0) {
+          const prevElement = body.getChild(i - 1);
+          if (prevElement.getType() === DocumentApp.ElementType.PARAGRAPH) {
+            const prevParagraph = prevElement.asParagraph();
+            const prevText = prevParagraph.getText();
+            if (extractCaptionTitle(prevText, '表') !== null) {
+              prevParagraph.removeFromParent();
+              i--; // 直前要素削除でインデックスが詰まるため調整
+            }
+          }
+        }
+
+        skippedTables++;
+        continue;
+      }
+
       tableCounterInSection++;
 
       // 表番号を生成（見出しに応じた番号体系）
@@ -197,6 +216,15 @@ function addFigureNumbers(body) {
     processedTables,
     skippedTables
   };
+}
+
+/**
+ * 表が1行1列かどうかを判定
+ * @param {GoogleAppsScript.Document.Table} table
+ * @return {boolean}
+ */
+function isSingleCellTable(table) {
+  return table.getNumRows() === 1 && table.getRow(0).getNumCells() === 1;
 }
 
 /**
@@ -256,6 +284,21 @@ function applyCaptionCenterAlignment(paragraph) {
   paragraph.setIndentEnd(0);
   paragraph.setIndentFirstLine(0);
   paragraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+}
+
+/**
+ * 指定要素の直後に段落を挿入（末尾要素のときは append）
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {GoogleAppsScript.Document.Element} element
+ * @param {string} text
+ * @return {GoogleAppsScript.Document.Paragraph}
+ */
+function insertParagraphAfter(body, element, text) {
+  const insertIndex = body.getChildIndex(element) + 1;
+  if (insertIndex >= body.getNumChildren()) {
+    return body.appendParagraph(text);
+  }
+  return body.insertParagraph(insertIndex, text);
 }
 
 /**
