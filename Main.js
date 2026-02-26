@@ -28,13 +28,28 @@ function runReplacement() {
   const body = doc.getBody();
   
   // Style.gs の置換処理（全角英数→半角）
-  convertFullWidthToHalfWidth(body);
+  const styleResult = convertFullWidthToHalfWidth(body);
   
   // Master.gs の置換処理（用語統一・単位スペースなど）
-  fixTypos(body);
+  const typoResult = fixTypos(body);
   
   doc.saveAndClose();
-  DocumentApp.getUi().alert('スタイル調整（文字・用語）が完了しました。');
+  DocumentApp.getUi().alert(
+    'スタイル調整（文字・用語）が完了しました。\n\n' +
+    '[全角→半角]\n' +
+    '変更文字数: ' + styleResult.changedCharacters + ' 件\n' +
+    'ヒット数: ' + styleResult.totalHits + ' 件\n' +
+    'スキップ(該当なし): ' + styleResult.skippedMappings + ' 件\n\n' +
+    '[用語統一（単純置換）]\n' +
+    '変更数: ' + typoResult.simple.changedCount + ' 件\n' +
+    'ヒット数: ' + typoResult.simple.totalHits + ' 件\n' +
+    'スキップ(該当なし): ' + typoResult.simple.skippedRules + ' 件\n\n' +
+    '[用語統一（正規表現置換）]\n' +
+    '変更数: ' + typoResult.regex.changedCount + ' 件\n' +
+    'ヒット数: ' + typoResult.regex.totalHits + ' 件\n' +
+    'スキップ(該当なし): ' + typoResult.regex.skippedRules + ' 件\n\n' +
+    '※ スキップは「置換ルールはあるが、今回の文書では該当がなかった件数」です。'
+  );
 }
 
 /**

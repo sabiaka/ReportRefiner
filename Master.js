@@ -103,9 +103,44 @@ const REGEX_REPLACEMENTS = [
  * 定義されたルールに従ってドキュメントを修正します
  */
 function fixTypos(body) {
+  const stats = {
+    simple: {
+      rules: 0,
+      hitRules: 0,
+      skippedRules: 0,
+      totalHits: 0,
+      changedCount: 0,
+      errorCount: 0
+    },
+    regex: {
+      rules: 0,
+      hitRules: 0,
+      skippedRules: 0,
+      totalHits: 0,
+      changedCount: 0,
+      errorCount: 0
+    }
+  };
+
+  const countPatternHits = (pattern, ignoreCase) => {
+    const text = body.getText();
+    if (!text) return 0;
+
+    const jsPattern = pattern.replace(/^\(\?i\)/, '');
+    const flags = ignoreCase ? 'gi' : 'g';
+
+    try {
+      const regex = new RegExp(jsPattern, flags);
+      const matches = text.match(regex);
+      return matches ? matches.length : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
 
   // 1. 単語置換（安全版）
   for (const [searchVal, replaceVal] of Object.entries(SIMPLE_REPLACEMENTS)) {
+    stats.simple.rules++;
     const escapedSearch = searchVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const escapedReplace = replaceVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -127,19 +162,42 @@ function fixTypos(body) {
         '(?!' + escapedReplace + ')';
     }
 
+    const hits = countPatternHits(pattern, true);
+    if (hits > 0) {
+      stats.simple.hitRules++;
+      stats.simple.totalHits += hits;
+    } else {
+      stats.simple.skippedRules++;
+    }
+
     try {
       body.replaceText(pattern, replaceVal);
+      stats.simple.changedCount += hits;
     } catch (e) {
+      stats.simple.errorCount++;
       console.error('Simple置換エラー: ' + searchVal + ' -> ' + e);
     }
   }
 
   // 2. 正規表現置換（副作用のないもののみ）
   for (const rule of REGEX_REPLACEMENTS) {
+    stats.regex.rules++;
+    const hits = countPatternHits(rule.pattern, false);
+    if (hits > 0) {
+      stats.regex.hitRules++;
+      stats.regex.totalHits += hits;
+    } else {
+      stats.regex.skippedRules++;
+    }
+
     try {
       body.replaceText(rule.pattern, rule.replacement);
+      stats.regex.changedCount += hits;
     } catch (e) {
+      stats.regex.errorCount++;
       console.error('Regex置換エラー: ' + rule.pattern + ' -> ' + e);
     }
   }
+
+  return stats;
 }

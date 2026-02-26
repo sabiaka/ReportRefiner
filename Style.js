@@ -5,15 +5,47 @@
  */
 
 function convertFullWidthToHalfWidth(body) {
+  const stats = {
+    totalHits: 0,
+    changedCharacters: 0,
+    skippedMappings: 0,
+    mappingCount: 0,
+    errorCount: 0
+  };
+
+  const countLiteralInBody = (target) => {
+    const text = body.getText();
+    if (!text || !target) return 0;
+
+    let index = 0;
+    let count = 0;
+    while (true) {
+      const foundIndex = text.indexOf(target, index);
+      if (foundIndex === -1) break;
+      count++;
+      index = foundIndex + target.length;
+    }
+    return count;
+  };
   
   // ▼ 安全に置換するためのヘルパー関数
   // 検索文字に ? * + ( ) [ ] などが含まれていてもエラーにならないようにします
   const safeReplace = (searchVal, replaceVal) => {
+    stats.mappingCount++;
+    const hits = countLiteralInBody(searchVal);
+    if (hits === 0) {
+      stats.skippedMappings++;
+      return;
+    }
+
+    stats.totalHits += hits;
     // 正規表現の特殊文字をエスケープ（打ち消し）する
     const escapedSearch = searchVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     try {
       body.replaceText(escapedSearch, replaceVal);
+      stats.changedCharacters += hits;
     } catch (e) {
+      stats.errorCount++;
       console.error('置換エラー: ' + searchVal + ' -> ' + e.toString());
     }
   };
@@ -46,4 +78,6 @@ function convertFullWidthToHalfWidth(body) {
     const halfChar = String.fromCharCode(halfLowerStart + i);
     safeReplace(fullChar, halfChar);
   }
+
+  return stats;
 }
