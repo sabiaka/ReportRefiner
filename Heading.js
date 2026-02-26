@@ -55,7 +55,8 @@ function addHeadingNumbers(body) {
         const numberString = generateNumberString(counters, level);
         
         // 新しい番号を付けてテキストを更新
-        p.setText(numberString + ' ' + text);
+        // setTextで文字書式が崩れるケースがあるため、見出しスタイルを再適用する
+        setHeadingTextKeepingStyle(p, numberString + ' ' + text);
         
         processedHeadings++;
       }
@@ -133,7 +134,7 @@ function removeHeadingNumbers(body) {
       
       // テキストが変更された場合のみ更新（空文字列になる場合はスキップ）
       if (newText !== text && newText.length > 0) {
-        p.setText(newText);
+        setHeadingTextKeepingStyle(p, newText);
         processedHeadings++;
       }
     }
@@ -142,4 +143,15 @@ function removeHeadingNumbers(body) {
   return {
     processedHeadings
   };
+}
+
+/**
+ * 見出し段落のテキスト更新後に見出しスタイルを再適用する
+ * @param {GoogleAppsScript.Document.Paragraph} paragraph
+ * @param {string} newText
+ */
+function setHeadingTextKeepingStyle(paragraph, newText) {
+  const heading = paragraph.getHeading();
+  paragraph.setText(newText);
+  paragraph.setHeading(heading);
 }

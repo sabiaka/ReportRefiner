@@ -101,9 +101,6 @@ function adjustIndent(body) {
       continue;
     }
 
-    // 先頭の全角・半角スペースを削除
-    text = normalizeParagraphText(p, text);
-
     // 見出しの場合: インデントをすべて0にする
     if (heading !== DocumentApp.ParagraphHeading.NORMAL) {
       p.setIndentStart(0);
@@ -112,6 +109,9 @@ function adjustIndent(body) {
       adjustedParagraphs++;
       continue;
     }
+
+    // 通常段落のみテキスト整形
+    text = normalizeParagraphText(p, text);
 
     // 通常の段落: 左インデント0、初行インデント1文字
     p.setIndentStart(0);
