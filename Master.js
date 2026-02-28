@@ -15,10 +15,10 @@ const SIMPLE_REPLACEMENTS = {
   'raspi': 'Raspberry Pi',
   'arduino': 'Arduino',
   'arm': 'Arm',
-  
+
   // --- Web / Infrastructure ---
   'cloudflare': 'Cloudflare', 'workers': 'Workers', 'pages': 'Pages',
-  
+
   // --- AI / Computer Vision ---
   'segformers': 'SegFormer', 'segformer': 'SegFormer',
   'yolo': 'YOLO', 'opencv': 'OpenCV',
@@ -47,15 +47,15 @@ const SIMPLE_REPLACEMENTS = {
   // --- 日本語・一般用語 ---
   'ユーザー': 'ユーザ', 'サーバー': 'サーバ', 'コンピューター': 'コンピュータ',
   'プリンター': 'プリンタ', 'フォルダー': 'フォルダ', 'ブラウザー': 'ブラウザ',
-  'インターフェース': 'インタフェース', 'ずれ': 'ズレ','ホックリング':'ホッグリング','ホックリンガ':'ホッグリンガ',
-  
+  'インターフェース': 'インタフェース', 'ずれ': 'ズレ', 'ホックリング': 'ホッグリング', 'ホックリンガ': 'ホッグリンガ',
+
   // --- 句読点 ---
   '。': '.', '、': ',',
 
   // --- 数学・論理記号の美化 ---
   '<=': '≦', '>=': '≧', '!=': '≠',
   '==': '＝', '->': '→', '=>': '⇒',
-  
+
   // --- カッコの統一（すべて半角へ） ---
   '（': '(', '）': ')',
   '［': '[', '］': ']',
@@ -97,6 +97,59 @@ const REGEX_REPLACEMENTS = [
   {
     pattern: ',{2,}', replacement: ','
   }
+];
+
+// ▼ 4. です・ます調 → だ・である調 変換ルール
+const STYLE_SHIFT_RULES = [
+  // 先に長い表現を優先して置換
+  { pattern: 'されませんでした', replacement: 'されなかった' },
+  { pattern: 'できませんでした', replacement: 'できなかった' },
+  { pattern: 'しませんでした', replacement: 'しなかった' },
+  { pattern: 'ありませんでした', replacement: 'なかった' },
+  { pattern: 'と言われています', replacement: 'とされている' },
+  { pattern: 'されています', replacement: 'されている' },
+  { pattern: 'しています', replacement: 'している' },
+  { pattern: 'されます', replacement: 'される' },
+  { pattern: 'となります', replacement: 'となる' },
+  { pattern: 'になります', replacement: 'になる' },
+  { pattern: 'であります', replacement: 'である' },
+  { pattern: 'いたしました', replacement: 'した' },
+  { pattern: 'いたします', replacement: 'する' },
+  { pattern: 'しました', replacement: 'した' },
+  { pattern: 'しません', replacement: 'しない' },
+  { pattern: 'します', replacement: 'する' },
+  { pattern: 'できます', replacement: 'できる' },
+  { pattern: 'できません', replacement: 'できない' },
+  { pattern: 'あります', replacement: 'ある' },
+  { pattern: 'ありません', replacement: 'ない' },
+  { pattern: 'いました', replacement: 'いた' },
+  { pattern: 'いません', replacement: 'いない' },
+  { pattern: 'います', replacement: 'いる' },
+  { pattern: 'でした', replacement: 'であった' },
+  { pattern: 'ですが', replacement: 'だが' },
+  { pattern: 'ですので', replacement: 'であるため' },
+  { pattern: 'ですから', replacement: 'であるため' },
+  { pattern: 'でしょう', replacement: 'だろう' },
+  { pattern: 'かもしれません', replacement: '可能性がある' },
+  { pattern: 'です', replacement: 'である' }
+];
+
+// ▼ 5. 話し言葉 → 文書向け表現 変換ルール
+const SPOKEN_TO_FORMAL_RULES = [
+  { pattern: 'ちゃんと', replacement: '適切に' },
+  { pattern: 'ちょっと', replacement: 'やや' },
+  { pattern: 'すごく', replacement: '非常に' },
+  { pattern: 'めっちゃ', replacement: '非常に' },
+  { pattern: 'たぶん', replacement: 'おそらく' },
+  { pattern: 'いろいろ', replacement: 'さまざま' },
+  { pattern: 'やっぱり', replacement: 'やはり' },
+  { pattern: 'とても', replacement: '非常に' },
+  { pattern: 'いっぱい', replacement: '多く' },
+  { pattern: 'けっこう', replacement: '比較的' },
+  { pattern: 'わりと', replacement: '比較的' },
+  { pattern: 'みたいな', replacement: 'のような' },
+  { pattern: 'っていう', replacement: 'という' },
+  { pattern: 'じゃなくて', replacement: 'ではなく' }
 ];
 
 /**
@@ -198,6 +251,86 @@ function fixTypos(body) {
       console.error('Regex置換エラー: ' + rule.pattern + ' -> ' + e);
     }
   }
+
+  return stats;
+}
+
+/**
+ * です・ます調を、だ・である調へ変換します（安全な範囲の定型変換）
+ */
+function convertPoliteToDeclarative(body) {
+  const createStats = () => ({
+    rules: 0,
+    hitRules: 0,
+    skippedRules: 0,
+    totalHits: 0,
+    changedCount: 0,
+    errorCount: 0
+  });
+
+  const stats = {
+    styleShift: createStats(),
+    spokenToFormal: createStats(),
+    rules: 0,
+    hitRules: 0,
+    skippedRules: 0,
+    totalHits: 0,
+    changedCount: 0,
+    errorCount: 0
+  };
+
+  const countLiteralInBody = (target) => {
+    const text = body.getText();
+    if (!text || !target) return 0;
+
+    let index = 0;
+    let count = 0;
+    while (true) {
+      const foundIndex = text.indexOf(target, index);
+      if (foundIndex === -1) break;
+      count++;
+      index = foundIndex + target.length;
+    }
+    return count;
+  };
+
+  const applyLiteralRules = (rules, targetStats, label) => {
+    for (const rule of rules) {
+      targetStats.rules++;
+      const hits = countLiteralInBody(rule.pattern);
+      if (hits > 0) {
+        targetStats.hitRules++;
+        targetStats.totalHits += hits;
+      } else {
+        targetStats.skippedRules++;
+        continue;
+      }
+
+      const escapedPattern = rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      try {
+        body.replaceText(escapedPattern, rule.replacement);
+        targetStats.changedCount += hits;
+      } catch (e) {
+        targetStats.errorCount++;
+        console.error(label + 'エラー: ' + rule.pattern + ' -> ' + e);
+      }
+    }
+  };
+
+  // 1) です・ます調 → だ・である調
+  applyLiteralRules(STYLE_SHIFT_RULES, stats.styleShift, '文体変換');
+
+  // 2) 話し言葉 → 文書向け表現
+  applyLiteralRules(SPOKEN_TO_FORMAL_RULES, stats.spokenToFormal, '話し言葉補正');
+
+  // 互換性のため、合算値も返す
+  stats.rules = stats.styleShift.rules + stats.spokenToFormal.rules;
+  stats.hitRules = stats.styleShift.hitRules + stats.spokenToFormal.hitRules;
+  stats.skippedRules = stats.styleShift.skippedRules + stats.spokenToFormal.skippedRules;
+  stats.totalHits = stats.styleShift.totalHits + stats.spokenToFormal.totalHits;
+  stats.changedCount = stats.styleShift.changedCount + stats.spokenToFormal.changedCount;
+  stats.errorCount = stats.styleShift.errorCount + stats.spokenToFormal.errorCount;
 
   return stats;
 }

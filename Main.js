@@ -8,6 +8,7 @@ function onOpen() {
   
   ui.createMenu('カスタム機能')
     .addItem('スタイル調整（文字・用語）', 'runReplacement')
+    .addItem('文体変換（だ・である調）', 'runStyleShiftToDeclarative')
     .addSeparator() // 区切り線
     .addItem('レイアウト調整（画像中央）', 'runLayoutAdjustment')
     .addItem('インデント自動調整', 'runIndentAdjustment')
@@ -49,6 +50,35 @@ function runReplacement() {
     'ヒット数: ' + typoResult.regex.totalHits + ' 件\n' +
     'スキップ(該当なし): ' + typoResult.regex.skippedRules + ' 件\n\n' +
     '※ スキップは「置換ルールはあるが、今回の文書では該当がなかった件数」です。'
+  );
+}
+
+/**
+ * 1.5 文体変換の実行
+ * （です・ます調を、だ・である調に統一）
+ */
+function runStyleShiftToDeclarative() {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+
+  // Master.js の処理（文体変換）
+  const result = convertPoliteToDeclarative(body);
+
+  doc.saveAndClose();
+  DocumentApp.getUi().alert(
+    '文体変換（だ・である調）が完了しました。\n\n' +
+    '[です・ます調 → だ・である調]\n' +
+    '変更数: ' + result.styleShift.changedCount + ' 件\n' +
+    'ヒット数: ' + result.styleShift.totalHits + ' 件\n' +
+    'スキップ(該当なし): ' + result.styleShift.skippedRules + ' 件\n\n' +
+    '[話し言葉 → 文書向け表現]\n' +
+    '変更数: ' + result.spokenToFormal.changedCount + ' 件\n' +
+    'ヒット数: ' + result.spokenToFormal.totalHits + ' 件\n' +
+    'スキップ(該当なし): ' + result.spokenToFormal.skippedRules + ' 件\n\n' +
+    '[合計]\n' +
+    '変更数: ' + result.changedCount + ' 件\n' +
+    'ヒット数: ' + result.totalHits + ' 件\n\n' +
+    '※ 誤変換防止のため、定型的な表現のみ変換しています。'
   );
 }
 
