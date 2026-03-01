@@ -38,6 +38,7 @@ function addFigureNumbers(body) {
   let currentHeadingNumbers = [];
   let figureCounterInSection = 0;
   let tableCounterInSection = 0;
+  let hasEnteredMainContent = false; // 最初の見出し出現以降を本文として扱う
 
   for (let i = 0; i < body.getNumChildren(); i++) {
     const element = body.getChild(i);
@@ -47,14 +48,17 @@ function addFigureNumbers(body) {
     if (elementType === DocumentApp.ElementType.PARAGRAPH) {
       const paragraph = element.asParagraph();
       const heading = paragraph.getHeading();
-
-      // 見出しが変わったらカウンタをリセット
-      if (heading === DocumentApp.ParagraphHeading.HEADING1 ||
+      const isHeadingParagraph =
+        heading === DocumentApp.ParagraphHeading.HEADING1 ||
         heading === DocumentApp.ParagraphHeading.HEADING2 ||
         heading === DocumentApp.ParagraphHeading.HEADING3 ||
         heading === DocumentApp.ParagraphHeading.HEADING4 ||
         heading === DocumentApp.ParagraphHeading.HEADING5 ||
-        heading === DocumentApp.ParagraphHeading.HEADING6) {
+        heading === DocumentApp.ParagraphHeading.HEADING6;
+
+      // 見出しが変わったらカウンタをリセット
+      if (isHeadingParagraph) {
+        hasEnteredMainContent = true;
 
         const text = paragraph.getText();
         const match = text.match(/^([\d\.]+)/);
@@ -73,6 +77,12 @@ function addFigureNumbers(body) {
 
       // 画像が含まれているかチェック
       if (paragraphContainsImage(paragraph)) {
+        // 表紙（最初の見出しより前）は採番対象外
+        if (!hasEnteredMainContent) {
+          skippedImages++;
+          continue;
+        }
+
         // 前の要素をチェック（画像の上に表番号があるか確認）
         let isTableImage = false;
         if (i > 0) {
@@ -149,6 +159,12 @@ function addFigureNumbers(body) {
     // 表要素の場合
     else if (elementType === DocumentApp.ElementType.TABLE) {
       const table = element.asTable();
+
+      // 表紙（最初の見出しより前）は採番対象外
+      if (!hasEnteredMainContent) {
+        skippedTables++;
+        continue;
+      }
 
       // 1x1表（コードブロック代用）は採番しない
       if (isSingleCellTable(table)) {
