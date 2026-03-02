@@ -117,7 +117,7 @@ function runIndentAdjustment() {
     'インデント自動調整が完了しました。\n' +
     '調整した段落: ' + result.adjustedParagraphs + ' 件\n' +
     'スキップした段落: ' + result.skippedParagraphs + ' 件\n\n' +
-    '※ 見出し: インデントなし\n' +
+    '※ 見出し: 既存インデントを維持（変更しない）\n' +
     '※ 通常段落: 初行インデント1文字'
   );
 }

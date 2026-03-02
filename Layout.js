@@ -45,7 +45,7 @@ function alignCenterLayout(body) {
 /**
  * 図表以外の段落のインデントを自動調整
  * - 図表番号・タイトル: インデントなし（中央揃え維持）
- * - 見出し: インデントなし
+ * - 見出し: 既存設定を維持（変更しない）
  * - 通常の段落: 左インデント 0pt、初行インデント 1文字（約14pt）
  * @param {GoogleAppsScript.Document.Body} body
  * @return {{adjustedParagraphs: number, skippedParagraphs: number}}
@@ -101,12 +101,9 @@ function adjustIndent(body) {
       continue;
     }
 
-    // 見出しの場合: インデントをすべて0にする
+    // 見出しの場合: 独自設定を維持するためスキップ
     if (heading !== DocumentApp.ParagraphHeading.NORMAL) {
-      p.setIndentStart(0);
-      p.setIndentEnd(0);
-      p.setIndentFirstLine(0);
-      adjustedParagraphs++;
+      skippedParagraphs++;
       continue;
     }
 
